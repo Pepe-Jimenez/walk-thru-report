@@ -113,8 +113,6 @@
     const organizeBtn = document.getElementById('organizeBtn');
 
     let selectedFile = null;
-
-    // Allowed Excel extensions
     const allowedExtensions = ['.xlsx', '.xls', '.csv'];
 
     // Handle Drag & Drop
@@ -263,7 +261,7 @@
                     "BALANCE": rawBalance,
                     "OVER LOCK": formattedOverlock,
                     "Scheduled Out": formatDate(row["SMO"]),
-                    "MAINTENANCE": (row["MAINTENANCE"] || "").toString().trim(),
+                    "MAIN-\nTENANCE": (row["MAINTENANCE"] || "").toString().trim(),
                     "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim()
                 };
             });
@@ -271,37 +269,46 @@
             // Build new worksheet
             const newWorksheet = XLSX.utils.json_to_sheet(cleanedData);
 
-            // Configure Page Setup & Header/Footer Layout
+            // Set Page View to 'pageLayout' so headers and footers are visible directly in Excel
+            newWorksheet['!views'] = [{ SQREF: 'A1:I100', showGridLines: true, view: 'pageLayout' }];
+
+            // Page Setup Orientation: Portrait & Fit to Page
             newWorksheet['!pageSetup'] = { 
                 orientation: 'portrait', 
-                paperSize: 9, // Letter size
+                paperSize: 9, 
                 fitToWidth: 1, 
                 fitToHeight: 0 
             };
 
-            // Setup Print Headers & Footers:
-            // Header Right (&R): Title "Walk-Thru" on line 1, formatted date on line 2
-            // Footer Left (&L): "Printed on [timestamp]"
-            // Footer Right (&R): Page number / Total pages ("1 / 23")
+            // Header & Footer Layout Configuration
             newWorksheet['!headerFooter'] = {
                 oddHeader: `&R&BWalk-Thru&B\n${formattedHeaderDate}`,
                 oddFooter: `&LPrinted on ${timestampString}&R&P / &N`
             };
 
-            // Set explicit column widths (in pixels)
+            // Explicit Column Widths
             newWorksheet['!cols'] = [
-                { wpx: 62 },  // Col 0: UNIT
-                { wpx: 160 }, // Col 1: NAME
-                { wpx: 70 },  // Col 2: SIZE
-                { wpx: 80 },  // Col 3: RATE
-                { wpx: 80 },  // Col 4: BALANCE
-                { wpx: 125 }, // Col 5: OVER LOCK
-                { wpx: 107 }, // Col 6: Scheduled Out
-                { wpx: 107 }, // Col 7: MAINTENANCE
-                { wpx: 280 }  // Col 8: NOTE
+                { wch: 7.29 },  // UNIT
+                { wch: 15.00 }, // NAME
+                { wch: 8.00 },  // SIZE
+                { wch: 8.00 },  // RATE
+                { wch: 8.00 },  // BALANCE
+                { wch: 10.57 }, // OVER LOCK
+                { wch: 11.00 }, // Scheduled Out
+                { wch: 9.14 },  // MAIN-TENANCE
+                { wch: 16.43 }  // NOTE
             ];
 
-            // Define border styles
+            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
+
+            // Set Row Heights to 18.75 for all rows (Header + Data)
+            const rowHeights = [];
+            for (let i = 0; i <= range.e.r; i++) {
+                rowHeights.push({ hpt: 18.75 });
+            }
+            newWorksheet['!rows'] = rowHeights;
+
+            // Define Thin Border
             const thinBorder = {
                 top: { style: "thin", color: { auto: 1 } },
                 bottom: { style: "thin", color: { auto: 1 } },
@@ -309,9 +316,7 @@
                 right: { style: "thin", color: { auto: 1 } }
             };
 
-            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
-
-            // Apply Cell Styling & Alignments
+            // Apply Styling, Font Sizes, Bolding, and Alignment
             for (let R = range.s.r; R <= range.e.r; ++R) {
                 const rowIndex = R - 1;
                 const rowFlags = rowIndex >= 0 ? rowBoldFlags[rowIndex] : null;
@@ -332,16 +337,23 @@
                         }
                     }
 
+                    // Enable Wrap Text for OVER LOCK (col 5), Scheduled Out (col 6), MAIN-TENANCE (col 7)
+                    const shouldWrapText = [5, 6, 7].includes(C);
+
                     newWorksheet[cellAddress].s = {
                         border: thinBorder,
-                        font: { bold: isBold },
-                        alignment: { vertical: 'center' }
+                        font: { sz: 12, bold: isBold, name: 'Calibri' },
+                        alignment: { 
+                            vertical: 'center',
+                            wrapText: shouldWrapText
+                        }
                     };
 
                     // Format Header Row
                     if (R === 0) {
                         newWorksheet[cellAddress].s.fill = { fgColor: { rgb: "E9ECEF" } };
                         newWorksheet[cellAddress].s.alignment.horizontal = "center";
+                        newWorksheet[cellAddress].s.alignment.wrapText = true;
                     } else {
                         // Center align SIZE (col 2), RATE (col 3), BALANCE (col 4), Scheduled Out (col 6)
                         if ([2, 3, 4, 6].includes(C)) {
