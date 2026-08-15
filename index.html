@@ -196,10 +196,18 @@ function processExcelFile(file) {
                 return `${mm}/${dd}/${yyyy}`;
             }
 
+            // Generate header date string: "Saturday, August 15, 2026"
+            const now = new Date();
+            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const formattedHeaderDate = now.toLocaleDateString('en-US', dateOptions);
+
+            // Generate timestamp string: "MM/DD/YYYY, h:mm:ss AM/PM"
+            const timestampString = now.toLocaleString('en-US');
+
             // Track row bolding directives from OVERLOCK logic
             const rowBoldFlags = [];
 
-            // Map and clean data according to specified structure & conditions
+            // Clean and map rows according to specified structure
             const cleanedData = rawRows.map((row, index) => {
                 let fullName = "";
                 const lastName = (row["LAST NAME"] || "").toString().trim();
@@ -254,21 +262,24 @@ function processExcelFile(file) {
             // Build new worksheet
             const newWorksheet = XLSX.utils.json_to_sheet(cleanedData);
 
-            // Force Portrait orientation & print cut-off setup
+            // Configure Page Setup & Header/Footer Layout
             newWorksheet['!pageSetup'] = { 
                 orientation: 'portrait', 
-                paperSize: 9, // Letter paper size
+                paperSize: 9, // Letter size
                 fitToWidth: 1, 
                 fitToHeight: 0 
             };
-            
-            // Enable Fit to Page in Print Settings
-            newWorksheet['!sheetFormat'] = { defaultRowHeight: 20 };
 
-            // Explicit Pixel-to-Width Column Mappings
-            // UNIT: 62px (~8.5), NAME: 160px (~21), SIZE: 70px (~9.5), RATE: 80px (~11), 
-            // BALANCE: 80px (~11), OVER LOCK: 125px (~17), Scheduled Out: 107px (~14), 
-            // MAINTENANCE: 107px (~14), NOTE: 280px (~36)
+            // Setup Print Headers & Footers:
+            // Header Right (&R): Title "Walk-Thru" on line 1, formatted date on line 2
+            // Footer Left (&L): "Printed on [timestamp]"
+            // Footer Right (&R): Page number / Total pages ("1 / 23")
+            newWorksheet['!headerFooter'] = {
+                oddHeader: `&R&BWalk-Thru&B\n${formattedHeaderDate}`,
+                oddFooter: `&LPrinted on ${timestampString}&R&P / &N`
+            };
+
+            // Set explicit column widths (in pixels)
             newWorksheet['!cols'] = [
                 { wpx: 62 },  // Col 0: UNIT
                 { wpx: 160 }, // Col 1: NAME
@@ -281,7 +292,7 @@ function processExcelFile(file) {
                 { wpx: 280 }  // Col 8: NOTE
             ];
 
-            // Define borders style
+            // Define border styles
             const thinBorder = {
                 top: { style: "thin", color: { auto: 1 } },
                 bottom: { style: "thin", color: { auto: 1 } },
@@ -291,9 +302,9 @@ function processExcelFile(file) {
 
             const range = XLSX.utils.decode_range(newWorksheet['!ref']);
 
-            // Apply Styling (Borders, Alignment, Bolding, Currency)
+            // Apply Cell Styling & Alignments
             for (let R = range.s.r; R <= range.e.r; ++R) {
-                const rowIndex = R - 1; // Data index excluding header
+                const rowIndex = R - 1;
                 const rowFlags = rowIndex >= 0 ? rowBoldFlags[rowIndex] : null;
 
                 for (let C = range.s.c; C <= range.e.c; ++C) {
@@ -312,7 +323,6 @@ function processExcelFile(file) {
                         }
                     }
 
-                    // Build cell style
                     newWorksheet[cellAddress].s = {
                         border: thinBorder,
                         font: { bold: isBold },
