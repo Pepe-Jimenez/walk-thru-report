@@ -208,7 +208,7 @@
 
             const rowBoldFlags = [];
 
-            // Clean & Map Data Rows (Col H = NOTE, Col I = MAINTENANCE)
+            // Clean & Map Data Rows (Blank key "" used for Column J boundary)
             const cleanedData = rawRows.map((row, index) => {
                 let fullName = "";
                 const lastName = (row["LAST NAME"] || "").toString().trim();
@@ -256,15 +256,15 @@
                     "Scheduled Out": formatDate(row["SMO"]),
                     "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim(),
                     "MAIN-\nTENANCE": (row["MAINTENANCE"] || "").toString().trim(),
-                    "_BOUNDARY_": ""
+                    "": "" // Empty key removes any header label in Column J
                 };
             });
 
             // Construct Grid Data
             const finalData = [
-                { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "_BOUNDARY_": "" },
-                { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "_BOUNDARY_": "" },
-                { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "_BOUNDARY_": "" }
+                { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "": "" },
+                { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "": "" },
+                { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "": "" }
             ];
 
             const newWorksheet = XLSX.utils.json_to_sheet(finalData, { skipHeader: true });
@@ -280,7 +280,7 @@
             const totalRows = cleanedData.length + 3;
             newWorksheet['!printHeader'] = `A1:I${totalRows}`;
 
-            // Set Worksheet View Mode to Page Layout (forces page numbers to display)
+            // Set Worksheet View Mode to Page Layout
             newWorksheet['!views'] = [
                 { showGridLines: true, view: 'pageLayout' }
             ];
@@ -327,7 +327,7 @@
                 { wch: 11.00 }, // Scheduled Out (G)
                 { wch: 16.43 }, // NOTE (H)
                 { wch: 9.14 },  // MAIN-TENANCE (I)
-                { wch: 0.00 }   // Boundary (J)
+                { wch: 0.00 }   // Blank Boundary Column (J)
             ];
 
             const thinBorder = {
