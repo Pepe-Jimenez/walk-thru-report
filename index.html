@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Walk Thru Report Organizer</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <style>
         * { box-sizing: border-box; }
         body {
@@ -137,9 +140,9 @@
         fileInfo.textContent = `Selected: ${file.name}`;
         
         // Auto-detect dropdown selection based on extension
-        if (file.name.endsWith('.pdf')) {
+        if (file.name.toLowerCase().endsWith('.pdf')) {
             fileTypeSelect.value = 'pdf';
-        } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        } else if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls') || file.name.toLowerCase().endsWith('.csv')) {
             fileTypeSelect.value = 'excel';
         }
     }
@@ -155,18 +158,76 @@
         return `WalkThru_${mm}-${dd}-${yyyy}.${ext}`;
     }
 
-    // Process & Download Click
+    // Organize & Download Click
     organizeBtn.addEventListener('click', () => {
         if (!selectedFile) {
             alert('Please select or drop a file first.');
             return;
         }
 
-        const outputName = getFormattedFileName();
-        alert(`Processing '${selectedFile.name}' as ${fileTypeSelect.value.toUpperCase()}...\n\nYour file will be saved as: ${outputName}`);
-        
-        // Data processing logic will plug in here next!
+        if (fileTypeSelect.value === 'excel') {
+            processExcelFile(selectedFile);
+        } else {
+            alert('PDF processing will be connected next!');
+        }
     });
+
+    // Excel Parsing & Column Reorganization Logic
+    function processExcelFile(file) {
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+
+            // Read first worksheet
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+
+            // Convert worksheet to JSON rows
+            const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+            // Map & clean data according to your specified column structure
+            const cleanedData = rawRows.map(row => {
+                let fullName = "";
+                const lastName = (row["LAST NAME"] || "").toString().trim();
+                const firstName = (row["FIRST NAME"] || "").toString().trim();
+                const businessName = (row["BUSINESS NAME"] || "").toString().trim();
+
+                if (lastName && firstName) {
+                    fullName = `${lastName}, ${firstName}`;
+                } else if (lastName) {
+                    fullName = lastName;
+                } else if (firstName) {
+                    fullName = firstName;
+                } else {
+                    fullName = businessName;
+                }
+
+                return {
+                    "UNIT": row["UNIT"] || "",
+                    "NAME": fullName,
+                    "SIZE": row["SIZE"] || "",
+                    "RATE": row["RATE"] || "",
+                    "BALANCE": row["BALANCE"] || "",
+                    "OVER LOCK": row["OVERLOCK"] || "",
+                    "Scheduled Out": row["SMO"] || "",
+                    "MAINTENANCE": row["MAINTENANCE"] || "",
+                    "NOTE": row["VEHICLE DESCRIPTION"] || ""
+                };
+            });
+
+            // Build output worksheet & download
+            const newWorksheet = XLSX.utils.json_to_sheet(cleanedData);
+            const newWorkbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "WalkThru Report");
+
+            const outputFileName = getFormattedFileName();
+            XLSX.writeFile(newWorkbook, outputFileName);
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
 </script>
 
 </body>
