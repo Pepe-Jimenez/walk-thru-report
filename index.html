@@ -259,7 +259,7 @@
                 };
             });
 
-            // Construct Final Grid Array (Top Title Block + Table)
+            // Construct Final Grid Array
             const finalData = [
                 { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "" },
                 { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "" },
@@ -276,28 +276,26 @@
                 { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }
             ];
 
-            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
-
-            // Strictly lock print area from Column A to Column I (Row 1 to Last Data Row)
-            newWorksheet['!printHeader'] = `A1:I${range.e.r + 1}`;
-
-            // Page Setup for Printing
+            // Page Setup for Page Numbers and Narrow Margins
             newWorksheet['!pageSetup'] = { 
                 orientation: 'portrait', 
                 paperSize: 9, 
                 fitToWidth: 1, 
-                fitToHeight: 0
+                fitToHeight: 0,
+                scale: 100,
+                usePrinterDefaults: false
             };
 
-            // Bottom Footer Only: Left = Printed Timestamp, Right = Page X of Y
+            // Force Footers with Page Numbers on Every Page (Bottom Left & Right)
             newWorksheet['!headerFooter'] = {
                 differentFirst: false,
                 differentOddEven: false,
                 oddHeader: "",
-                oddFooter: `&LPrinted on ${timestampString}&RPage &P of &N`
+                oddFooter: `&LPrinted on ${timestampString}&RPage &P of &N`,
+                evenFooter: `&LPrinted on ${timestampString}&RPage &P of &N`
             };
 
-            // Narrow Margins (Left & Right: 0.25")
+            // Narrow Margins (Left/Right: 0.25 in)
             newWorksheet['!margins'] = { 
                 left: 0.25, 
                 right: 0.25, 
@@ -309,15 +307,15 @@
 
             // Explicit Column Widths
             newWorksheet['!cols'] = [
-                { wch: 7.29 },  // UNIT
-                { wch: 15.00 }, // NAME
-                { wch: 8.00 },  // SIZE
-                { wch: 8.00 },  // RATE
-                { wch: 8.50 },  // BALANCE
-                { wch: 11.00 }, // OVER LOCK
-                { wch: 11.00 }, // Scheduled Out
-                { wch: 9.14 },  // MAIN-TENANCE
-                { wch: 16.43 }  // NOTE
+                { wch: 7.29 },  // UNIT (A)
+                { wch: 15.00 }, // NAME (B)
+                { wch: 8.00 },  // SIZE (C)
+                { wch: 8.00 },  // RATE (D)
+                { wch: 8.50 },  // BALANCE (E)
+                { wch: 11.00 }, // OVER LOCK (F)
+                { wch: 11.00 }, // Scheduled Out (G)
+                { wch: 9.14 },  // MAIN-TENANCE (H)
+                { wch: 16.43 }  // NOTE (I)
             ];
 
             const thinBorder = {
@@ -326,6 +324,8 @@
                 left: { style: "thin", color: { auto: 1 } },
                 right: { style: "thin", color: { auto: 1 } }
             };
+
+            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
 
             // Style Title Rows (Right Aligned above NOTE Column)
             if (newWorksheet['A1']) {
@@ -362,31 +362,27 @@
                         }
                     }
 
-                    // Wrap text ONLY for OVER LOCK (Column index 5)
-                    // For all other cells (including NOTE), wrapText is false so overflow is hidden
-                    const shouldWrap = (C === 5);
+                    // Column B (1) and Column I (8) share identical non-wrapping, clipped behavior
+                    const isOverlock = (C === 5);
+                    const isNoteOrName = (C === 1 || C === 8);
 
                     newWorksheet[cellAddress].s = {
                         border: thinBorder,
                         font: { sz: 9, bold: isBold, name: 'Calibri' },
                         alignment: { 
                             vertical: 'center',
-                            horizontal: (C === 8 && R > 3) ? 'left' : undefined,
-                            wrapText: shouldWrap
+                            horizontal: (R > 3 && [2, 3, 4, 6].includes(C)) ? 'center' : (R > 3 && (C === 1 || C === 8) ? 'left' : undefined),
+                            wrapText: isOverlock,
+                            clip: isNoteOrName
                         }
                     };
 
-                    // Header Row Formatting
+                    // Header Row Specific Formatting
                     if (R === 3) {
                         newWorksheet[cellAddress].s.fill = { fgColor: { rgb: "E9ECEF" } };
                         newWorksheet[cellAddress].s.alignment.horizontal = "center";
                         newWorksheet[cellAddress].s.alignment.wrapText = true;
                     } else {
-                        // Center Alignments for SIZE, RATE, BALANCE, Scheduled Out
-                        if ([2, 3, 4, 6].includes(C)) {
-                            newWorksheet[cellAddress].s.alignment.horizontal = "center";
-                        }
-
                         // Currency Formats
                         if (C === 3 || C === 4) {
                             newWorksheet[cellAddress].z = '"$"#,##0.00';
