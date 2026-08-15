@@ -230,31 +230,43 @@ function processExcelFile(file) {
                 };
             });
 
-            // Build new worksheet
+            // Build output worksheet
             const newWorksheet = XLSX.utils.json_to_sheet(cleanedData);
 
-            // Apply currency formatting to RATE (Col D) and BALANCE (Col E)
+            // Set Page Setup Orientation to PORTRAIT
+            newWorksheet['!pageSetup'] = { orientation: 'portrait', fitToWidth: 1, fitToHeight: 0 };
+
             const range = XLSX.utils.decode_range(newWorksheet['!ref']);
-            for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-                // Rate is column 3 (D), Balance is column 4 (E)
+
+            // Format Cells: Center Alignment & Currency
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                // Indices: SIZE = Col 2 (C), RATE = Col 3 (D), BALANCE = Col 4 (E)
+                const sizeCell = XLSX.utils.encode_cell({ r: R, c: 2 });
                 const rateCell = XLSX.utils.encode_cell({ r: R, c: 3 });
                 const balanceCell = XLSX.utils.encode_cell({ r: R, c: 4 });
 
-                if (newWorksheet[rateCell]) {
-                    newWorksheet[rateCell].z = '"$"#,##0.00';
-                }
-                if (newWorksheet[balanceCell]) {
-                    newWorksheet[balanceCell].z = '"$"#,##0.00';
+                // Center align SIZE, RATE, and BALANCE
+                [sizeCell, rateCell, balanceCell].forEach(cellKey => {
+                    if (newWorksheet[cellKey]) {
+                        newWorksheet[cellKey].s = newWorksheet[cellKey].s || {};
+                        newWorksheet[cellKey].s.alignment = { horizontal: 'center', vertical: 'center' };
+                    }
+                });
+
+                // Apply currency formatting for RATE & BALANCE (Data rows only)
+                if (R > range.s.r) {
+                    if (newWorksheet[rateCell]) newWorksheet[rateCell].z = '"$"#,##0.00';
+                    if (newWorksheet[balanceCell]) newWorksheet[balanceCell].z = '"$"#,##0.00';
                 }
             }
 
-            // Auto-calculate dynamic column widths to fit content
+            // Auto-calculate dynamic column widths (fit to data for requested columns)
             const headers = ["UNIT", "NAME", "SIZE", "RATE", "BALANCE", "OVER LOCK", "Scheduled Out", "MAINTENANCE", "NOTE"];
+            const fitColumns = ["UNIT", "SIZE", "RATE", "BALANCE", "OVER LOCK"];
+
             const colWidths = headers.map(header => {
-                // Header length base
                 let maxLen = header.length;
 
-                // Max length among data rows
                 cleanedData.forEach(row => {
                     let val = row[header];
                     if (header === "RATE" || header === "BALANCE") {
@@ -264,12 +276,16 @@ function processExcelFile(file) {
                     if (len > maxLen) maxLen = len;
                 });
 
-                // Add padding so cells fit neatly
-                return { wch: maxLen + 4 };
+                // Fit width padding for requested columns
+                if (fitColumns.includes(header)) {
+                    return { wch: maxLen + 3 };
+                }
+                
+                return { wch: Math.max(maxLen + 2, 12) };
             });
 
-            // Set NOTE column (Col index 8) to take dynamic remaining space
-            colWidths[8] = { wch: Math.max(colWidths[8].wch, 45) };
+            // Column NOTE (index 8) expands to fill remaining page area in portrait view
+            colWidths[8] = { wch: 35 };
 
             newWorksheet['!cols'] = colWidths;
 
