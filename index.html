@@ -255,47 +255,52 @@
                     "OVER LOCK": formattedOverlock,
                     "Scheduled Out": formatDate(row["SMO"]),
                     "MAIN-\nTENANCE": (row["MAINTENANCE"] || "").toString().trim(),
-                    "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim()
+                    "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim(),
+                    "_BOUNDARY_": "" // Empty Column J acts as a hard boundary so Column I cuts off text
                 };
             });
 
             // Construct Final Grid Array
             const finalData = [
-                { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "" },
-                { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "" },
-                { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "" }
+                { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "", "_BOUNDARY_": "" },
+                { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "", "_BOUNDARY_": "" },
+                { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "", "_BOUNDARY_": "" }
             ];
 
             // Append headers & clean data
             const newWorksheet = XLSX.utils.json_to_sheet(finalData, { skipHeader: true });
             XLSX.utils.sheet_add_json(newWorksheet, cleanedData, { origin: "A4" });
 
-            // Merge Title Block Across Columns A to I
+            // Merge Title Block Across Columns A to I only
             newWorksheet['!merges'] = [
                 { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
                 { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }
             ];
 
-            // Page Setup for Page Numbers and Narrow Margins
+            // Lock Print Area strictly from Column A to Column I
+            const totalRows = cleanedData.length + 3;
+            newWorksheet['!printHeader'] = `A1:I${totalRows}`;
+
+            // Page Setup Configuration
             newWorksheet['!pageSetup'] = { 
                 orientation: 'portrait', 
                 paperSize: 9, 
                 fitToWidth: 1, 
                 fitToHeight: 0,
-                scale: 100,
-                usePrinterDefaults: false
+                scale: 100
             };
 
-            // Force Footers with Page Numbers on Every Page (Bottom Left & Right)
+            // Setup Header / Footer for Page Numbers
+            const footerString = `&LPrinted on ${timestampString}&RPage &P of &N`;
             newWorksheet['!headerFooter'] = {
                 differentFirst: false,
                 differentOddEven: false,
                 oddHeader: "",
-                oddFooter: `&LPrinted on ${timestampString}&RPage &P of &N`,
-                evenFooter: `&LPrinted on ${timestampString}&RPage &P of &N`
+                oddFooter: footerString,
+                evenFooter: footerString
             };
 
-            // Narrow Margins (Left/Right: 0.25 in)
+            // Narrow Margins (0.25" Left/Right)
             newWorksheet['!margins'] = { 
                 left: 0.25, 
                 right: 0.25, 
@@ -305,7 +310,7 @@
                 footer: 0.3 
             };
 
-            // Explicit Column Widths
+            // Column Widths (Column J has width 0 so it acts purely as a boundary)
             newWorksheet['!cols'] = [
                 { wch: 7.29 },  // UNIT (A)
                 { wch: 15.00 }, // NAME (B)
@@ -315,7 +320,8 @@
                 { wch: 11.00 }, // OVER LOCK (F)
                 { wch: 11.00 }, // Scheduled Out (G)
                 { wch: 9.14 },  // MAIN-TENANCE (H)
-                { wch: 16.43 }  // NOTE (I)
+                { wch: 16.43 }, // NOTE (I)
+                { wch: 0.00 }   // Boundary Column (J)
             ];
 
             const thinBorder = {
@@ -327,7 +333,7 @@
 
             const range = XLSX.utils.decode_range(newWorksheet['!ref']);
 
-            // Style Title Rows (Right Aligned above NOTE Column)
+            // Style Title Rows
             if (newWorksheet['A1']) {
                 newWorksheet['A1'].s = {
                     font: { sz: 14, bold: true, name: 'Calibri' },
@@ -346,7 +352,7 @@
                 const rowIndex = R - 4; // Data offset after header
                 const rowFlags = rowIndex >= 0 ? rowBoldFlags[rowIndex] : null;
 
-                for (let C = range.s.c; C <= range.e.c; ++C) {
+                for (let C = range.s.c; C <= 8; ++C) { // Loop only through Columns A–I
                     const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
                     if (!newWorksheet[cellAddress]) continue;
 
@@ -362,22 +368,20 @@
                         }
                     }
 
-                    // Column B (1) and Column I (8) share identical non-wrapping, clipped behavior
+                    // Enable wrapText ONLY for OVER LOCK (Column F / index 5)
                     const isOverlock = (C === 5);
-                    const isNoteOrName = (C === 1 || C === 8);
 
                     newWorksheet[cellAddress].s = {
                         border: thinBorder,
                         font: { sz: 9, bold: isBold, name: 'Calibri' },
                         alignment: { 
                             vertical: 'center',
-                            horizontal: (R > 3 && [2, 3, 4, 6].includes(C)) ? 'center' : (R > 3 && (C === 1 || C === 8) ? 'left' : undefined),
-                            wrapText: isOverlock,
-                            clip: isNoteOrName
+                            horizontal: (R > 3 && [2, 3, 4, 6].includes(C)) ? 'center' : undefined,
+                            wrapText: isOverlock
                         }
                     };
 
-                    // Header Row Specific Formatting
+                    // Header Row Formatting
                     if (R === 3) {
                         newWorksheet[cellAddress].s.fill = { fgColor: { rgb: "E9ECEF" } };
                         newWorksheet[cellAddress].s.alignment.horizontal = "center";
@@ -390,6 +394,11 @@
                     }
                 }
             }
+
+            // Direct XML patch to guarantee Footer and Page Numbers appear in Excel Print / Preview
+            const footerXml = `<headerFooter><oddFooter>&amp;LPrinted on ${timestampString.replace(/&/g, '&amp;')}&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>`;
+            newWorksheet['!xml'] = newWorksheet['!xml'] || {};
+            newWorksheet['!xml'].footer = footerXml;
 
             // Generate workbook & download
             const newWorkbook = XLSX.utils.book_new();
