@@ -276,20 +276,34 @@
                 { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }
             ];
 
-            // Page Setup & Print Header/Footer for EVERY PAGE
+            // Setup Page Orientation & Margin Controls
             newWorksheet['!pageSetup'] = { 
                 orientation: 'portrait', 
                 paperSize: 9, 
                 fitToWidth: 1, 
-                fitToHeight: 0 
+                fitToHeight: 0,
+                scale: 100
             };
 
+            // Enable Active Headers & Footers Printing
             newWorksheet['!headerFooter'] = {
+                differentFirst: false,
+                differentOddEven: false,
                 oddHeader: `&R&BWalk-Thru&B\n${formattedHeaderDate}`,
                 oddFooter: `&LPrinted on ${timestampString}&RPage &P of &N`
             };
 
-            // Explicit Column Widths (Updated BALANCE & OVER LOCK)
+            // Set Margins so Headers/Footers print cleanly without clipping
+            newWorksheet['!margins'] = { 
+                left: 0.5, 
+                right: 0.5, 
+                top: 0.75, 
+                bottom: 0.75, 
+                header: 0.3, 
+                footer: 0.3 
+            };
+
+            // Column Width Specifications
             newWorksheet['!cols'] = [
                 { wch: 7.29 },  // UNIT
                 { wch: 15.00 }, // NAME
@@ -351,7 +365,7 @@
                         font: { sz: 12, bold: isBold, name: 'Calibri' },
                         alignment: { 
                             vertical: 'center',
-                            wrapText: false // Disabled text wrapping so row height stays standard
+                            wrapText: false // Disabled text wrapping
                         }
                     };
 
@@ -359,7 +373,7 @@
                     if (R === 3) {
                         newWorksheet[cellAddress].s.fill = { fgColor: { rgb: "E9ECEF" } };
                         newWorksheet[cellAddress].s.alignment.horizontal = "center";
-                        newWorksheet[cellAddress].s.alignment.wrapText = true; // Wrap header titles if needed
+                        newWorksheet[cellAddress].s.alignment.wrapText = true;
                     } else {
                         // Center Alignments for SIZE, RATE, BALANCE, Scheduled Out
                         if ([2, 3, 4, 6].includes(C)) {
