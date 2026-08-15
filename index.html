@@ -208,7 +208,7 @@
 
             const rowBoldFlags = [];
 
-            // Clean & Map Data Rows
+            // Clean & Map Data Rows (Swapped H & I: Column H = NOTE, Column I = MAINTENANCE)
             const cleanedData = rawRows.map((row, index) => {
                 let fullName = "";
                 const lastName = (row["LAST NAME"] || "").toString().trim();
@@ -254,24 +254,24 @@
                     "BALANCE": rawBalance,
                     "OVER LOCK": formattedOverlock,
                     "Scheduled Out": formatDate(row["SMO"]),
-                    "MAIN-\nTENANCE": (row["MAINTENANCE"] || "").toString().trim(),
-                    "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim(),
-                    "_BOUNDARY_": "" // Empty Column J acts as a hard boundary so Column I cuts off text
+                    "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim(),         // Moved to Col H
+                    "MAIN-\nTENANCE": (row["MAINTENANCE"] || "").toString().trim(),      // Moved to Col I
+                    "_BOUNDARY_": ""                                                      // Col J boundary
                 };
             });
 
             // Construct Final Grid Array
             const finalData = [
-                { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "", "_BOUNDARY_": "" },
-                { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "", "_BOUNDARY_": "" },
-                { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "", "_BOUNDARY_": "" }
+                { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "_BOUNDARY_": "" },
+                { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "_BOUNDARY_": "" },
+                { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "_BOUNDARY_": "" }
             ];
 
             // Append headers & clean data
             const newWorksheet = XLSX.utils.json_to_sheet(finalData, { skipHeader: true });
             XLSX.utils.sheet_add_json(newWorksheet, cleanedData, { origin: "A4" });
 
-            // Merge Title Block Across Columns A to I only
+            // Merge Title Block Across Columns A to I
             newWorksheet['!merges'] = [
                 { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
                 { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }
@@ -310,7 +310,7 @@
                 footer: 0.3 
             };
 
-            // Column Widths (Column J has width 0 so it acts purely as a boundary)
+            // Column Widths (Swapped Col H and Col I widths)
             newWorksheet['!cols'] = [
                 { wch: 7.29 },  // UNIT (A)
                 { wch: 15.00 }, // NAME (B)
@@ -319,8 +319,8 @@
                 { wch: 8.50 },  // BALANCE (E)
                 { wch: 11.00 }, // OVER LOCK (F)
                 { wch: 11.00 }, // Scheduled Out (G)
-                { wch: 9.14 },  // MAIN-TENANCE (H)
-                { wch: 16.43 }, // NOTE (I)
+                { wch: 16.43 }, // NOTE (H)
+                { wch: 9.14 },  // MAIN-TENANCE (I)
                 { wch: 0.00 }   // Boundary Column (J)
             ];
 
@@ -352,7 +352,7 @@
                 const rowIndex = R - 4; // Data offset after header
                 const rowFlags = rowIndex >= 0 ? rowBoldFlags[rowIndex] : null;
 
-                for (let C = range.s.c; C <= 8; ++C) { // Loop only through Columns A–I
+                for (let C = range.s.c; C <= 8; ++C) { // Loop through Columns A–I
                     const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
                     if (!newWorksheet[cellAddress]) continue;
 
@@ -395,7 +395,7 @@
                 }
             }
 
-            // Direct XML patch to guarantee Footer and Page Numbers appear in Excel Print / Preview
+            // XML patch to guarantee Footer and Page Numbers appear in Excel Print / Preview
             const footerXml = `<headerFooter><oddFooter>&amp;LPrinted on ${timestampString.replace(/&/g, '&amp;')}&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>`;
             newWorksheet['!xml'] = newWorksheet['!xml'] || {};
             newWorksheet['!xml'].footer = footerXml;
