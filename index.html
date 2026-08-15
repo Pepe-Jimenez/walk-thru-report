@@ -276,13 +276,17 @@
                 { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }
             ];
 
-            // Page Setup
+            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
+
+            // Strictly lock print area from Column A to Column I (Row 1 to Last Data Row)
+            newWorksheet['!printHeader'] = `A1:I${range.e.r + 1}`;
+
+            // Page Setup for Printing
             newWorksheet['!pageSetup'] = { 
                 orientation: 'portrait', 
                 paperSize: 9, 
                 fitToWidth: 1, 
-                fitToHeight: 0,
-                scale: 100
+                fitToHeight: 0
             };
 
             // Bottom Footer Only: Left = Printed Timestamp, Right = Page X of Y
@@ -293,7 +297,7 @@
                 oddFooter: `&LPrinted on ${timestampString}&RPage &P of &N`
             };
 
-            // Set Margins to "Narrow" (Left & Right: 0.25")
+            // Narrow Margins (Left & Right: 0.25")
             newWorksheet['!margins'] = { 
                 left: 0.25, 
                 right: 0.25, 
@@ -322,8 +326,6 @@
                 left: { style: "thin", color: { auto: 1 } },
                 right: { style: "thin", color: { auto: 1 } }
             };
-
-            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
 
             // Style Title Rows (Right Aligned above NOTE Column)
             if (newWorksheet['A1']) {
@@ -360,8 +362,8 @@
                         }
                     }
 
-                    // Wrap text ONLY for OVER LOCK (Column C === 5)
-                    // Clip text boundary for NOTE (Column C === 8)
+                    // Wrap text ONLY for OVER LOCK (Column index 5)
+                    // For all other cells (including NOTE), wrapText is false so overflow is hidden
                     const shouldWrap = (C === 5);
 
                     newWorksheet[cellAddress].s = {
@@ -369,6 +371,7 @@
                         font: { sz: 9, bold: isBold, name: 'Calibri' },
                         alignment: { 
                             vertical: 'center',
+                            horizontal: (C === 8 && R > 3) ? 'left' : undefined,
                             wrapText: shouldWrap
                         }
                     };
