@@ -295,7 +295,7 @@
                 { wch: 15.00 }, // NAME
                 { wch: 8.00 },  // SIZE
                 { wch: 8.00 },  // RATE
-                { wch: 8.50 },  // BALANCE
+                { wch: 9.00 },  // BALANCE
                 { wch: 11.00 }, // OVER LOCK
                 { wch: 11.00 }, // Scheduled Out
                 { wch: 9.14 },  // MAIN-TENANCE
@@ -346,12 +346,15 @@
                         }
                     }
 
+                    // Enable wrapText ONLY for OVER LOCK column (Column C === 5)
+                    const shouldWrap = (C === 5);
+
                     newWorksheet[cellAddress].s = {
                         border: thinBorder,
                         font: { sz: 12, bold: isBold, name: 'Calibri' },
                         alignment: { 
                             vertical: 'center',
-                            wrapText: false // Disabled text wrapping so row height stays standard
+                            wrapText: shouldWrap
                         }
                     };
 
