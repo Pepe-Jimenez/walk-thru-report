@@ -208,7 +208,7 @@
 
             const rowBoldFlags = [];
 
-            // Clean & Map Data Rows (Swapped H & I: Column H = NOTE, Column I = MAINTENANCE)
+            // Clean & Map Data Rows (Col H = NOTE, Col I = MAINTENANCE)
             const cleanedData = rawRows.map((row, index) => {
                 let fullName = "";
                 const lastName = (row["LAST NAME"] || "").toString().trim();
@@ -254,20 +254,19 @@
                     "BALANCE": rawBalance,
                     "OVER LOCK": formattedOverlock,
                     "Scheduled Out": formatDate(row["SMO"]),
-                    "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim(),         // Moved to Col H
-                    "MAIN-\nTENANCE": (row["MAINTENANCE"] || "").toString().trim(),      // Moved to Col I
-                    "_BOUNDARY_": ""                                                      // Col J boundary
+                    "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim(),
+                    "MAIN-\nTENANCE": (row["MAINTENANCE"] || "").toString().trim(),
+                    "_BOUNDARY_": ""
                 };
             });
 
-            // Construct Final Grid Array
+            // Construct Grid Data
             const finalData = [
                 { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "_BOUNDARY_": "" },
                 { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "_BOUNDARY_": "" },
                 { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "_BOUNDARY_": "" }
             ];
 
-            // Append headers & clean data
             const newWorksheet = XLSX.utils.json_to_sheet(finalData, { skipHeader: true });
             XLSX.utils.sheet_add_json(newWorksheet, cleanedData, { origin: "A4" });
 
@@ -281,7 +280,12 @@
             const totalRows = cleanedData.length + 3;
             newWorksheet['!printHeader'] = `A1:I${totalRows}`;
 
-            // Page Setup Configuration
+            // Set Worksheet View Mode to Page Layout (forces page numbers to display)
+            newWorksheet['!views'] = [
+                { showGridLines: true, view: 'pageLayout' }
+            ];
+
+            // Page Setup Properties
             newWorksheet['!pageSetup'] = { 
                 orientation: 'portrait', 
                 paperSize: 9, 
@@ -290,8 +294,10 @@
                 scale: 100
             };
 
-            // Setup Header / Footer for Page Numbers
-            const footerString = `&LPrinted on ${timestampString}&RPage &P of &N`;
+            // Enable Footers with Page Numbers (&P and &N)
+            const cleanTimestamp = timestampString.replace(/&/g, '&amp;');
+            const footerString = `&LPrinted on ${cleanTimestamp}&RPage &P of &N`;
+            
             newWorksheet['!headerFooter'] = {
                 differentFirst: false,
                 differentOddEven: false,
@@ -310,7 +316,7 @@
                 footer: 0.3 
             };
 
-            // Column Widths (Swapped Col H and Col I widths)
+            // Column Widths
             newWorksheet['!cols'] = [
                 { wch: 7.29 },  // UNIT (A)
                 { wch: 15.00 }, // NAME (B)
@@ -321,7 +327,7 @@
                 { wch: 11.00 }, // Scheduled Out (G)
                 { wch: 16.43 }, // NOTE (H)
                 { wch: 9.14 },  // MAIN-TENANCE (I)
-                { wch: 0.00 }   // Boundary Column (J)
+                { wch: 0.00 }   // Boundary (J)
             ];
 
             const thinBorder = {
@@ -333,7 +339,7 @@
 
             const range = XLSX.utils.decode_range(newWorksheet['!ref']);
 
-            // Style Title Rows
+            // Style Title Block
             if (newWorksheet['A1']) {
                 newWorksheet['A1'].s = {
                     font: { sz: 14, bold: true, name: 'Calibri' },
@@ -347,19 +353,19 @@
                 };
             }
 
-            // Apply Table Formatting
+            // Apply Formatting Grid
             for (let R = 3; R <= range.e.r; ++R) {
-                const rowIndex = R - 4; // Data offset after header
+                const rowIndex = R - 4;
                 const rowFlags = rowIndex >= 0 ? rowBoldFlags[rowIndex] : null;
 
-                for (let C = range.s.c; C <= 8; ++C) { // Loop through Columns A–I
+                for (let C = range.s.c; C <= 8; ++C) {
                     const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
                     if (!newWorksheet[cellAddress]) continue;
 
                     let isBold = false;
 
                     if (R === 3) {
-                        isBold = true; // Table Header
+                        isBold = true;
                     } else if (rowFlags) {
                         if (rowFlags.boldEntireRow) {
                             isBold = true;
@@ -368,7 +374,6 @@
                         }
                     }
 
-                    // Enable wrapText ONLY for OVER LOCK (Column F / index 5)
                     const isOverlock = (C === 5);
 
                     newWorksheet[cellAddress].s = {
@@ -381,24 +386,17 @@
                         }
                     };
 
-                    // Header Row Formatting
                     if (R === 3) {
                         newWorksheet[cellAddress].s.fill = { fgColor: { rgb: "E9ECEF" } };
                         newWorksheet[cellAddress].s.alignment.horizontal = "center";
                         newWorksheet[cellAddress].s.alignment.wrapText = true;
                     } else {
-                        // Currency Formats
                         if (C === 3 || C === 4) {
                             newWorksheet[cellAddress].z = '"$"#,##0.00';
                         }
                     }
                 }
             }
-
-            // XML patch to guarantee Footer and Page Numbers appear in Excel Print / Preview
-            const footerXml = `<headerFooter><oddFooter>&amp;LPrinted on ${timestampString.replace(/&/g, '&amp;')}&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>`;
-            newWorksheet['!xml'] = newWorksheet['!xml'] || {};
-            newWorksheet['!xml'].footer = footerXml;
 
             // Generate workbook & download
             const newWorkbook = XLSX.utils.book_new();
