@@ -289,14 +289,14 @@
                 oddFooter: `&LPrinted on ${timestampString}&RPage &P of &N`
             };
 
-            // Column Widths
+            // Explicit Column Widths (Updated BALANCE & OVER LOCK)
             newWorksheet['!cols'] = [
                 { wch: 7.29 },  // UNIT
                 { wch: 15.00 }, // NAME
                 { wch: 8.00 },  // SIZE
                 { wch: 8.00 },  // RATE
-                { wch: 8.00 },  // BALANCE
-                { wch: 10.57 }, // OVER LOCK
+                { wch: 8.50 },  // BALANCE
+                { wch: 11.00 }, // OVER LOCK
                 { wch: 11.00 }, // Scheduled Out
                 { wch: 9.14 },  // MAIN-TENANCE
                 { wch: 16.43 }  // NOTE
@@ -351,7 +351,7 @@
                         font: { sz: 12, bold: isBold, name: 'Calibri' },
                         alignment: { 
                             vertical: 'center',
-                            wrapText: true // Auto-fits wrapped text dynamically
+                            wrapText: false // Disabled text wrapping so row height stays standard
                         }
                     };
 
@@ -359,6 +359,7 @@
                     if (R === 3) {
                         newWorksheet[cellAddress].s.fill = { fgColor: { rgb: "E9ECEF" } };
                         newWorksheet[cellAddress].s.alignment.horizontal = "center";
+                        newWorksheet[cellAddress].s.alignment.wrapText = true; // Wrap header titles if needed
                     } else {
                         // Center Alignments for SIZE, RATE, BALANCE, Scheduled Out
                         if ([2, 3, 4, 6].includes(C)) {
