@@ -208,7 +208,7 @@
 
             const rowBoldFlags = [];
 
-            // Clean & Map Data Rows (Blank key "" used for Column J boundary)
+            // Clean & Map Data Rows (Strictly Columns A to I)
             const cleanedData = rawRows.map((row, index) => {
                 let fullName = "";
                 const lastName = (row["LAST NAME"] || "").toString().trim();
@@ -255,16 +255,15 @@
                     "OVER LOCK": formattedOverlock,
                     "Scheduled Out": formatDate(row["SMO"]),
                     "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim(),
-                    "MAIN-\nTENANCE": (row["MAINTENANCE"] || "").toString().trim(),
-                    "": "" // Empty key removes any header label in Column J
+                    "MAIN-\nTENANCE": (row["MAINTENANCE"] || "").toString().trim()
                 };
             });
 
-            // Construct Grid Data
+            // Construct Grid Data (Columns A–I only)
             const finalData = [
-                { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "": "" },
-                { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "": "" },
-                { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "", "": "" }
+                { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "" },
+                { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "" },
+                { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "NOTE": "", "MAIN-\nTENANCE": "" }
             ];
 
             const newWorksheet = XLSX.utils.json_to_sheet(finalData, { skipHeader: true });
@@ -294,7 +293,7 @@
                 scale: 100
             };
 
-            // Enable Footers with Page Numbers (&P and &N)
+            // Enable Footers with Page Numbers
             const cleanTimestamp = timestampString.replace(/&/g, '&amp;');
             const footerString = `&LPrinted on ${cleanTimestamp}&RPage &P of &N`;
             
@@ -316,7 +315,7 @@
                 footer: 0.3 
             };
 
-            // Column Widths
+            // Explicit Column Widths (A–I)
             newWorksheet['!cols'] = [
                 { wch: 7.29 },  // UNIT (A)
                 { wch: 15.00 }, // NAME (B)
@@ -326,8 +325,7 @@
                 { wch: 11.00 }, // OVER LOCK (F)
                 { wch: 11.00 }, // Scheduled Out (G)
                 { wch: 16.43 }, // NOTE (H)
-                { wch: 9.14 },  // MAIN-TENANCE (I)
-                { wch: 0.00 }   // Blank Boundary Column (J)
+                { wch: 9.14 }   // MAIN-TENANCE (I)
             ];
 
             const thinBorder = {
