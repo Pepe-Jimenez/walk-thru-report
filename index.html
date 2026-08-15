@@ -161,7 +161,6 @@
         organizeBtn.disabled = false;
     }
 
-    // Generate output file name with today's date (MM-DD-YYYY)
     function getFormattedFileName() {
         const today = new Date();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -171,7 +170,6 @@
         return `WalkThru_${mm}-${dd}-${yyyy}.xlsx`;
     }
 
-    // Organize & Download Click
     organizeBtn.addEventListener('click', () => {
         if (!selectedFile) {
             alert('Please select or drop a valid Excel file first.');
@@ -192,7 +190,7 @@
 
             const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-            // Helper to format ISO/Date strings to MM/DD/YYYY
+            // Date Formatter
             function formatDate(val) {
                 if (!val) return "";
                 const d = new Date(val);
@@ -203,18 +201,14 @@
                 return `${mm}/${dd}/${yyyy}`;
             }
 
-            // Generate header date string: "Saturday, August 15, 2026"
             const now = new Date();
             const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             const formattedHeaderDate = now.toLocaleDateString('en-US', dateOptions);
-
-            // Generate timestamp string: "MM/DD/YYYY, h:mm:ss AM/PM"
             const timestampString = now.toLocaleString('en-US');
 
-            // Track row bolding directives from OVERLOCK logic
             const rowBoldFlags = [];
 
-            // Clean and map rows according to specified structure
+            // Clean & Map Data Rows
             const cleanedData = rawRows.map((row, index) => {
                 let fullName = "";
                 const lastName = (row["LAST NAME"] || "").toString().trim();
@@ -234,7 +228,6 @@
                 const rawBalance = parseFloat(row["BALANCE"]) || 0;
                 const rawRate = parseFloat(row["RATE"]) || 0;
 
-                // Handle OVERLOCK Conditional Logic
                 let rawOverlock = (row["OVERLOCK"] || "").toString().trim();
                 let formattedOverlock = rawOverlock;
                 let boldEntireRow = false;
@@ -266,13 +259,24 @@
                 };
             });
 
-            // Build new worksheet
-            const newWorksheet = XLSX.utils.json_to_sheet(cleanedData);
+            // Construct Final Grid Array (Top Title Block + Table)
+            const finalData = [
+                { "UNIT": "Walk-Thru", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "" },
+                { "UNIT": formattedHeaderDate, "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "" },
+                { "UNIT": "", "NAME": "", "SIZE": "", "RATE": "", "BALANCE": "", "OVER LOCK": "", "Scheduled Out": "", "MAIN-\nTENANCE": "", "NOTE": "" }
+            ];
 
-            // Set Page View to 'pageLayout' so headers and footers are visible directly in Excel
-            newWorksheet['!views'] = [{ SQREF: 'A1:I100', showGridLines: true, view: 'pageLayout' }];
+            // Append headers & clean data
+            const newWorksheet = XLSX.utils.json_to_sheet(finalData, { skipHeader: true });
+            XLSX.utils.sheet_add_json(newWorksheet, cleanedData, { origin: "A4" });
 
-            // Page Setup Orientation: Portrait & Fit to Page
+            // Merge Title Block Across Columns A to I
+            newWorksheet['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }
+            ];
+
+            // Page Setup & Print Header/Footer for EVERY PAGE
             newWorksheet['!pageSetup'] = { 
                 orientation: 'portrait', 
                 paperSize: 9, 
@@ -280,13 +284,12 @@
                 fitToHeight: 0 
             };
 
-            // Header & Footer Layout Configuration
             newWorksheet['!headerFooter'] = {
                 oddHeader: `&R&BWalk-Thru&B\n${formattedHeaderDate}`,
-                oddFooter: `&LPrinted on ${timestampString}&R&P / &N`
+                oddFooter: `&LPrinted on ${timestampString}&RPage &P of &N`
             };
 
-            // Explicit Column Widths
+            // Column Widths
             newWorksheet['!cols'] = [
                 { wch: 7.29 },  // UNIT
                 { wch: 15.00 }, // NAME
@@ -299,16 +302,6 @@
                 { wch: 16.43 }  // NOTE
             ];
 
-            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
-
-            // Set Row Heights to 18.75 for all rows (Header + Data)
-            const rowHeights = [];
-            for (let i = 0; i <= range.e.r; i++) {
-                rowHeights.push({ hpt: 18.75 });
-            }
-            newWorksheet['!rows'] = rowHeights;
-
-            // Define Thin Border
             const thinBorder = {
                 top: { style: "thin", color: { auto: 1 } },
                 bottom: { style: "thin", color: { auto: 1 } },
@@ -316,9 +309,25 @@
                 right: { style: "thin", color: { auto: 1 } }
             };
 
-            // Apply Styling, Font Sizes, Bolding, and Alignment
-            for (let R = range.s.r; R <= range.e.r; ++R) {
-                const rowIndex = R - 1;
+            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
+
+            // Style Title Rows
+            if (newWorksheet['A1']) {
+                newWorksheet['A1'].s = {
+                    font: { sz: 16, bold: true, name: 'Calibri' },
+                    alignment: { horizontal: 'right', vertical: 'center' }
+                };
+            }
+            if (newWorksheet['A2']) {
+                newWorksheet['A2'].s = {
+                    font: { sz: 12, italic: true, name: 'Calibri' },
+                    alignment: { horizontal: 'right', vertical: 'center' }
+                };
+            }
+
+            // Apply Table Formatting
+            for (let R = 3; R <= range.e.r; ++R) {
+                const rowIndex = R - 4; // Data offset after header
                 const rowFlags = rowIndex >= 0 ? rowBoldFlags[rowIndex] : null;
 
                 for (let C = range.s.c; C <= range.e.c; ++C) {
@@ -327,8 +336,8 @@
 
                     let isBold = false;
 
-                    if (R === 0) {
-                        isBold = true;
+                    if (R === 3) {
+                        isBold = true; // Table Header
                     } else if (rowFlags) {
                         if (rowFlags.boldEntireRow) {
                             isBold = true;
@@ -337,30 +346,26 @@
                         }
                     }
 
-                    // Enable Wrap Text for OVER LOCK (col 5), Scheduled Out (col 6), MAIN-TENANCE (col 7)
-                    const shouldWrapText = [5, 6, 7].includes(C);
-
                     newWorksheet[cellAddress].s = {
                         border: thinBorder,
                         font: { sz: 12, bold: isBold, name: 'Calibri' },
                         alignment: { 
                             vertical: 'center',
-                            wrapText: shouldWrapText
+                            wrapText: true // Auto-fits wrapped text dynamically
                         }
                     };
 
-                    // Format Header Row
-                    if (R === 0) {
+                    // Header Row Formatting
+                    if (R === 3) {
                         newWorksheet[cellAddress].s.fill = { fgColor: { rgb: "E9ECEF" } };
                         newWorksheet[cellAddress].s.alignment.horizontal = "center";
-                        newWorksheet[cellAddress].s.alignment.wrapText = true;
                     } else {
-                        // Center align SIZE (col 2), RATE (col 3), BALANCE (col 4), Scheduled Out (col 6)
+                        // Center Alignments for SIZE, RATE, BALANCE, Scheduled Out
                         if ([2, 3, 4, 6].includes(C)) {
                             newWorksheet[cellAddress].s.alignment.horizontal = "center";
                         }
 
-                        // Apply Currency format to RATE (Col 3) & BALANCE (Col 4)
+                        // Currency Formats
                         if (C === 3 || C === 4) {
                             newWorksheet[cellAddress].z = '"$"#,##0.00';
                         }
