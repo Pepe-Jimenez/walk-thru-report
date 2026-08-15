@@ -276,30 +276,44 @@
                 { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }
             ];
 
-            // Page Setup & Print Header/Footer for EVERY PAGE
+            // Page Setup for Printing & PDF Export
             newWorksheet['!pageSetup'] = { 
                 orientation: 'portrait', 
                 paperSize: 9, 
                 fitToWidth: 1, 
-                fitToHeight: 0 
+                fitToHeight: 0,
+                scale: 100
             };
 
+            // Force Headers and Footers with Page Numbers on Every Page
             newWorksheet['!headerFooter'] = {
+                differentFirst: false,
+                differentOddEven: false,
                 oddHeader: `&R&BWalk-Thru&B\n${formattedHeaderDate}`,
                 oddFooter: `&LPrinted on ${timestampString}&RPage &P of &N`
             };
 
+            // Page Margins for Header/Footer spacing
+            newWorksheet['!margins'] = { 
+                left: 0.5, 
+                right: 0.5, 
+                top: 0.75, 
+                bottom: 0.75, 
+                header: 0.3, 
+                footer: 0.3 
+            };
+
             // Explicit Column Widths
             newWorksheet['!cols'] = [
-                { wch: 7.29 },  // UNIT
-                { wch: 15.00 }, // NAME
-                { wch: 8.00 },  // SIZE
-                { wch: 8.00 },  // RATE
-                { wch: 8.50 },  // BALANCE
-                { wch: 11.00 }, // OVER LOCK
-                { wch: 11.00 }, // Scheduled Out
-                { wch: 9.14 },  // MAIN-TENANCE
-                { wch: 16.43 }  // NOTE
+                { wch: 6.57 },  // UNIT
+                { wch: 15.14 }, // NAME
+                { wch: 6.71 },  // SIZE
+                { wch: 7.29 },  // RATE
+                { wch: 7.86 },  // BALANCE
+                { wch: 9.29 }, // OVER LOCK
+                { wch: 8.86 }, // Scheduled Out
+                { wch: 7.71 },  // MAIN-TENANCE
+                { wch: 24.14 }  // NOTE
             ];
 
             const thinBorder = {
@@ -311,17 +325,17 @@
 
             const range = XLSX.utils.decode_range(newWorksheet['!ref']);
 
-            // Style Title Rows (Moved Title & Date to Left)
+            // Style Title Rows (Moved Title & Date back to Right Alignment)
             if (newWorksheet['A1']) {
                 newWorksheet['A1'].s = {
                     font: { sz: 14, bold: true, name: 'Calibri' },
-                    alignment: { horizontal: 'left', vertical: 'center' }
+                    alignment: { horizontal: 'right', vertical: 'center' }
                 };
             }
             if (newWorksheet['A2']) {
                 newWorksheet['A2'].s = {
                     font: { sz: 10, italic: true, name: 'Calibri' },
-                    alignment: { horizontal: 'left', vertical: 'center' }
+                    alignment: { horizontal: 'right', vertical: 'center' }
                 };
             }
 
@@ -347,11 +361,12 @@
                     }
 
                     // Enable wrapText ONLY for OVER LOCK column (Column C === 5)
+                    // Disable wrapText for NOTE column (Column C === 8) so long text clips at box boundary
                     const shouldWrap = (C === 5);
 
                     newWorksheet[cellAddress].s = {
                         border: thinBorder,
-                        font: { sz: 9, bold: isBold, name: 'Calibri' }, // Updated font size to 9
+                        font: { sz: 9, bold: isBold, name: 'Calibri' },
                         alignment: { 
                             vertical: 'center',
                             wrapText: shouldWrap
