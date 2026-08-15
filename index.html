@@ -173,21 +173,30 @@
     });
 
     // Excel Parsing & Column Reorganization Logic
-    function processExcelFile(file) {
+function processExcelFile(file) {
         const reader = new FileReader();
 
         reader.onload = function (e) {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 
-            // Read first worksheet
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
 
-            // Convert worksheet to JSON rows
             const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-            // Map & clean data according to your specified column structure
+            // Helper to format ISO/Date strings to MM/DD/YYYY
+            function formatDate(val) {
+                if (!val) return "";
+                const d = new Date(val);
+                if (isNaN(d.getTime())) return val.toString().trim();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                return `${mm}/${dd}/${yyyy}`;
+            }
+
+            // Map and clean data according to specified structure
             const cleanedData = rawRows.map(row => {
                 let fullName = "";
                 const lastName = (row["LAST NAME"] || "").toString().trim();
@@ -204,21 +213,67 @@
                     fullName = businessName;
                 }
 
+                // Format numbers to currency
+                const rawBalance = parseFloat(row["BALANCE"]) || 0;
+                const rawRate = parseFloat(row["RATE"]) || 0;
+
                 return {
-                    "UNIT": row["UNIT"] || "",
+                    "UNIT": (row["UNIT"] || "").toString().trim(),
                     "NAME": fullName,
-                    "SIZE": row["SIZE"] || "",
-                    "RATE": row["RATE"] || "",
-                    "BALANCE": row["BALANCE"] || "",
-                    "OVER LOCK": row["OVERLOCK"] || "",
-                    "Scheduled Out": row["SMO"] || "",
-                    "MAINTENANCE": row["MAINTENANCE"] || "",
-                    "NOTE": row["VEHICLE DESCRIPTION"] || ""
+                    "SIZE": (row["SIZE"] || "").toString().trim(),
+                    "RATE": rawRate,
+                    "BALANCE": rawBalance,
+                    "OVER LOCK": (row["OVERLOCK"] || "").toString().trim(),
+                    "Scheduled Out": formatDate(row["SMO"]),
+                    "MAINTENANCE": (row["MAINTENANCE"] || "").toString().trim(),
+                    "NOTE": (row["VEHICLE DESCRIPTION"] || "").toString().trim()
                 };
             });
 
-            // Build output worksheet & download
+            // Build new worksheet
             const newWorksheet = XLSX.utils.json_to_sheet(cleanedData);
+
+            // Apply currency formatting to RATE (Col D) and BALANCE (Col E)
+            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
+            for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+                // Rate is column 3 (D), Balance is column 4 (E)
+                const rateCell = XLSX.utils.encode_cell({ r: R, c: 3 });
+                const balanceCell = XLSX.utils.encode_cell({ r: R, c: 4 });
+
+                if (newWorksheet[rateCell]) {
+                    newWorksheet[rateCell].z = '"$"#,##0.00';
+                }
+                if (newWorksheet[balanceCell]) {
+                    newWorksheet[balanceCell].z = '"$"#,##0.00';
+                }
+            }
+
+            // Auto-calculate dynamic column widths to fit content
+            const headers = ["UNIT", "NAME", "SIZE", "RATE", "BALANCE", "OVER LOCK", "Scheduled Out", "MAINTENANCE", "NOTE"];
+            const colWidths = headers.map(header => {
+                // Header length base
+                let maxLen = header.length;
+
+                // Max length among data rows
+                cleanedData.forEach(row => {
+                    let val = row[header];
+                    if (header === "RATE" || header === "BALANCE") {
+                        val = `$${Number(val).toFixed(2)}`;
+                    }
+                    const len = val ? val.toString().length : 0;
+                    if (len > maxLen) maxLen = len;
+                });
+
+                // Add padding so cells fit neatly
+                return { wch: maxLen + 4 };
+            });
+
+            // Set NOTE column (Col index 8) to take dynamic remaining space
+            colWidths[8] = { wch: Math.max(colWidths[8].wch, 45) };
+
+            newWorksheet['!cols'] = colWidths;
+
+            // Generate workbook & save
             const newWorkbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "WalkThru Report");
 
